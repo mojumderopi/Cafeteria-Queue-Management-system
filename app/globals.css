@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium transition active:scale-[0.98];
+}
+.btn-primary { @apply btn bg-brand-500 text-white hover:bg-brand-600 disabled:bg-stone-300; }
+.btn-ghost { @apply btn bg-stone-100 text-stone-900 hover:bg-stone-200; }
+.btn-danger { @apply btn bg-red-500 text-white hover:bg-red-600; }
+.card { @apply rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200; }
+.chip { @apply inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700; }

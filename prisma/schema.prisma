@@ -1,0 +1,110 @@
+// Prisma schema for Smart Queue Cafeteria MVP
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  CASHIER
+  KITCHEN
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING_CASHIER
+  APPROVED
+  REJECTED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String?  @unique
+  name         String?
+  passwordHash String?
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+
+  orders Order[]
+}
+
+model Counter {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  name      String
+  qrSecret  String     @default(cuid())
+  createdAt DateTime   @default(now())
+
+  menuItems MenuItem[]
+  orders    Order[]
+}
+
+model MenuItem {
+  id                String  @id @default(cuid())
+  counterId         String
+  name              String
+  description       String?
+  price             Int // in smallest currency unit (e.g. cents/poisha)
+  stockQty          Int     @default(0)
+  lowStockThreshold Int     @default(3)
+  isAvailable       Boolean @default(true)
+  imageUrl          String?
+  createdAt         DateTime @default(now())
+
+  counter   Counter     @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([counterId])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  token         String        @unique
+  counterId     String
+  userId        String?
+  guestPhone    String?
+  status        OrderStatus   @default(PENDING_CASHIER)
+  paymentStatus PaymentStatus @default(UNPAID)
+  priorityScore Float         @default(0)
+  totalCents    Int           @default(0)
+  rejectReason  String?
+  createdAt     DateTime      @default(now())
+  approvedAt    DateTime?
+  readyAt       DateTime?
+  completedAt   DateTime?
+  updatedAt     DateTime      @updatedAt
+
+  counter    Counter     @relation(fields: [counterId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+  items      OrderItem[]
+
+  @@index([counterId, status])
+  @@index([priorityScore])
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  menuItemId String
+  qty        Int
+  unitPrice  Int
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
