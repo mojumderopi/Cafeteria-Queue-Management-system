@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -36,28 +36,36 @@ export default function LoginPage() {
   }
 
   return (
+    <form onSubmit={submit} className="card mt-6 space-y-3">
+      <input
+        className="w-full rounded-xl border border-stone-300 px-3 py-2"
+        placeholder="Phone"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+      />
+      <input
+        className="w-full rounded-xl border border-stone-300 px-3 py-2"
+        placeholder="Password"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      {err && <div className="text-sm text-red-600">{err}</div>}
+      <button className="btn-primary w-full" disabled={loading}>
+        {loading ? "Signing in…" : "Sign in"}
+      </button>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <main className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-2xl font-bold">Staff login</h1>
-      <p className="mt-1 text-sm text-stone-600">Cashier or kitchen only. Students don't need an account.</p>
-      <form onSubmit={submit} className="card mt-6 space-y-3">
-        <input
-          className="w-full rounded-xl border border-stone-300 px-3 py-2"
-          placeholder="Phone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-        <input
-          className="w-full rounded-xl border border-stone-300 px-3 py-2"
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {err && <div className="text-sm text-red-600">{err}</div>}
-        <button className="btn-primary w-full" disabled={loading}>
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+      <p className="mt-1 text-sm text-stone-600">Cashier or kitchen only. Students don&apos;t need an account.</p>
+      <Suspense fallback={<div className="card mt-6 h-40 animate-pulse" />}>
+        <LoginForm />
+      </Suspense>
     </main>
   );
 }

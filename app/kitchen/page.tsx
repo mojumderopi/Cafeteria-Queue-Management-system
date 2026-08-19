@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 import { EV, ROOMS, type OrderNewEvent, type OrderStatusEvent } from "@/lib/socket-events";
@@ -36,13 +36,7 @@ export default function KitchenBoard() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!counterId) return;
-    load();
-    if (sock) sock.emit("join:counter", counterId);
-  }, [counterId, sock]);
-
-  function beep() {
+  const beep = useCallback(() => {
     try {
       if (!audioCtx.current) audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       const ctx = audioCtx.current!;
@@ -55,14 +49,20 @@ export default function KitchenBoard() {
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
       o.start(); o.stop(ctx.currentTime + 0.4);
     } catch {}
-  }
+  }, []);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!counterId) return;
     const res = await fetch(`/api/staff/orders?counterId=${counterId}&status=APPROVED,PREPARING`);
     const j = await res.json();
     setOrders(j.orders ?? []);
-  }
+  }, [counterId]);
+
+  useEffect(() => {
+    if (!counterId) return;
+    load();
+    if (sock) sock.emit("join:counter", counterId);
+  }, [counterId, sock, load]);
 
   useEffect(() => {
     const t = setInterval(() => setTick((x) => x + 1), 30_000);
@@ -86,7 +86,7 @@ export default function KitchenBoard() {
       sock.off(EV.orderNew, onNew);
       sock.off(EV.orderStatus, onStatus);
     };
-  }, [sock, counterId]);
+  }, [sock, counterId, load, beep, toast]);
 
   async function act(orderId: string, kind: "start" | "ready") {
     const url = `/api/kitchen/orders/${orderId}/${kind}`;

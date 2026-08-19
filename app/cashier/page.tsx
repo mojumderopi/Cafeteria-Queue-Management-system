@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 import { EV, type OrderNewEvent, type OrderStatusEvent, type StockLowEvent } from "@/lib/socket-events";
@@ -46,18 +46,18 @@ export default function CashierDashboard() {
       });
   }, []);
 
-  useEffect(() => {
-    if (!counterId) return;
-    load();
-    if (sock) sock.emit("join:counter", counterId);
-  }, [counterId, sock]);
-
-  async function load() {
+  const load = useCallback(async () => {
     if (!counterId) return;
     const res = await fetch(`/api/staff/orders?counterId=${counterId}&status=${tab}`);
     const j = await res.json();
     setOrders(j.orders ?? []);
-  }
+  }, [counterId, tab]);
+
+  useEffect(() => {
+    if (!counterId) return;
+    load();
+    if (sock) sock.emit("join:counter", counterId);
+  }, [counterId, sock, load]);
 
   useEffect(() => {
     if (!sock || !counterId) return;
@@ -82,7 +82,7 @@ export default function CashierDashboard() {
       sock.off(EV.orderStatus, onStatus);
       sock.off(EV.stockLow, onStock);
     };
-  }, [sock, counterId, tab]);
+  }, [sock, counterId, tab, load, toast]);
 
   async function act(orderId: string, kind: "approve" | "reject" | "collect") {
     const url =
