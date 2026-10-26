@@ -4,6 +4,7 @@ export const EV = {
   orderStatus: "order:status",
   stockLow: "stock:low",
   queuePromoted: "queue:promoted",
+  menuAvailability: "menu:availability",
 } as const;
 
 export type OrderStatusValue =
@@ -38,9 +39,27 @@ export interface StockLowEvent {
   remaining: number;
 }
 
+// Public menu availability update. The cashier UI maintains the manual
+// availability flag; the public order API additionally requires stock > 0.
+// We send both so the student menu can re-derive the combined state and the
+// cashier panel can show three distinct states (available / out of stock /
+// manually disabled).
+export interface MenuAvailabilityEvent {
+  counterId: string;
+  itemId: string;
+  isAvailable: boolean;   // manual flag (cashier intent)
+  stockRemaining: number; // authoritative Redis count
+  archived: boolean;      // true when the item is soft-deleted
+  updatedAt: string;      // ISO timestamp
+}
+
 export const ROOMS = {
   student: (orderId: string) => `student:${orderId}`,
   cashier: (counterId: string) => `cashier:${counterId}`,
   kitchen: (counterId: string) => `kitchen:${counterId}`,
   counter: (counterId: string) => `counter:${counterId}`,
+  // Public menu room. Anyone (student, kitchen, cashier, admin) may join
+  // this room for a counter. The only event broadcast here today is
+  // menu:availability, which carries no private data.
+  menu: (counterId: string) => `menu:${counterId}`,
 };

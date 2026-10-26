@@ -1,52 +1,137 @@
+"use client";
+
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10">
-      <header className="flex items-center justify-between">
-        <div className="text-xl font-bold text-brand-600">Smart Queue</div>
-        <div className="flex gap-2">
-          <Link href="/login" className="btn-ghost text-sm">Staff login</Link>
+    <div>
+      <header className="sticky top-0 z-20 glass" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+        <div className="app-container flex items-center justify-between py-3">
+          <Link href="/" className="flex items-center gap-2">
+            <span
+              className="grid h-8 w-8 place-items-center rounded-lg"
+              style={{ background: "var(--forest-700)", color: "white" }}
+              aria-hidden
+            >
+              <Icon.Store size={18} />
+            </span>
+            <span className="text-base font-semibold tracking-tight text-ink-900">Smart Queue</span>
+            <span className="chip chip-forest">Cafeteria</span>
+          </Link>
+          <nav className="flex items-center gap-2" aria-label="Primary">
+            <Link href="/login" className="btn btn-ghost btn-sm">
+              <Icon.User size={14} aria-hidden /> Staff login
+            </Link>
+          </nav>
         </div>
       </header>
 
-      <section className="mt-10 rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold">Order from your seat. Skip the line.</h1>
-        <p className="mt-2 opacity-90">Scan the counter QR, order in 20 seconds, pay cash on pickup.</p>
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          {[
-            ["1", "Scan QR"],
-            ["2", "Place order"],
-            ["3", "Get notified"],
-            ["4", "Pay & pick up"],
-          ].map(([n, label]) => (
-            <div key={n} className="rounded-xl bg-white/10 p-3 backdrop-blur">
-              <div className="text-2xl font-bold">{n}</div>
-              <div className="opacity-90">{label}</div>
+      <section className="app-container pt-10 sm:pt-14">
+        <div className="grid items-center gap-8 lg:grid-cols-[1.2fr_1fr]">
+          <div>
+            <span className="chip chip-forest">
+              <Icon.Sparkle size={12} aria-hidden /> Premium food ordering
+            </span>
+            <h1 className="mt-3 text-display text-ink-900">
+              Order from your seat. <br className="hidden sm:block" />
+              <span style={{ color: "var(--forest-700)" }}>Skip the line.</span>
+            </h1>
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-500">
+              Scan your counter&apos;s QR code, build your order in under a minute, and pay cash on pickup.
+              Real-time queue, no signup, no overselling.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Link href="/c/canteen-a" className="btn btn-primary btn-lg">
+                Open Canteen A <Icon.ArrowRight size={16} aria-hidden />
+              </Link>
+              <Link href="/c/canteen-b" className="btn btn-ghost btn-lg">
+                Open Canteen B
+              </Link>
             </div>
-          ))}
-        </div>
-        <p className="mt-6 text-sm opacity-80">Tip: try the live demo counter <code className="rounded bg-black/20 px-1">canteen-a</code>.</p>
-        <div className="mt-4 flex gap-2">
-          <Link href="/c/canteen-a" className="btn-primary">Open Canteen A</Link>
-          <Link href="/c/canteen-b" className="btn-ghost bg-white/20 text-white hover:bg-white/30">Open Canteen B</Link>
+            <p className="mt-3 text-xs text-ink-500">
+              Tip: try the live demo counter <code className="rounded bg-cream-200 px-1.5 py-0.5">canteen-a</code>.
+            </p>
+          </div>
+
+          <div className="card-lg relative overflow-hidden p-6">
+            <div
+              className="absolute -right-10 -top-10 h-40 w-40 rounded-full"
+              style={{ background: "var(--amber-100)", filter: "blur(40px)" }}
+              aria-hidden
+            />
+            <div
+              className="absolute -bottom-12 -left-10 h-40 w-40 rounded-full"
+              style={{ background: "var(--forest-100)", filter: "blur(40px)" }}
+              aria-hidden
+            />
+            <div className="relative">
+              <div className="section-title">How it works</div>
+              <ol className="mt-3 space-y-3">
+                {[
+                  { n: 1, t: "Scan QR", d: "Each counter has its own QR code that opens the menu." },
+                  { n: 2, t: "Place order", d: "Add items to the cart and confirm. Stock is reserved instantly." },
+                  { n: 3, t: "Get notified", d: "Receive a token and watch your order move through the queue." },
+                  { n: 4, t: "Pay & pick up", d: "Pay cash on pickup when your token is called." },
+                ].map((s) => (
+                  <li key={s.n} className="flex items-start gap-3">
+                    <span
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
+                      style={{ background: "var(--forest-700)" }}
+                      aria-hidden
+                    >
+                      {s.n}
+                    </span>
+                    <div>
+                      <div className="text-sm font-semibold text-ink-900">{s.t}</div>
+                      <div className="text-xs text-ink-500">{s.d}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mt-8 grid sm:grid-cols-3 gap-3">
-        <div className="card">
-          <h3 className="font-semibold">Atomic stock</h3>
-          <p className="mt-1 text-sm text-stone-600">Redis Lua guarantees no oversell, even when orders pile up at lunch rush.</p>
-        </div>
-        <div className="card">
-          <h3 className="font-semibold">Fair priority queue</h3>
-          <p className="mt-1 text-sm text-stone-600">Old orders get auto-promoted so nobody starves waiting.</p>
-        </div>
-        <div className="card">
-          <h3 className="font-semibold">No signup required</h3>
-          <p className="mt-1 text-sm text-stone-600">Scan, order, get a token. Save your phone later for faster checkout.</p>
-        </div>
+      <section className="app-container mt-12 grid gap-3 sm:grid-cols-3">
+        {[
+          {
+            t: "Atomic stock",
+            d: "Redis Lua guarantees no oversell, even when orders pile up at lunch rush.",
+            icon: "Cash" as const,
+          },
+          {
+            t: "Fair priority queue",
+            d: "Old orders get auto-promoted so nobody starves waiting.",
+            icon: "Clock" as const,
+          },
+          {
+            t: "No signup required",
+            d: "Scan, order, get a token. Save your phone later for faster checkout.",
+            icon: "QrCode" as const,
+          },
+        ].map((f) => {
+          const I = Icon[f.icon];
+          return (
+            <div key={f.t} className="card flex flex-col gap-2 p-4">
+              <span
+                className="grid h-9 w-9 place-items-center rounded-lg"
+                style={{ background: "var(--forest-100)", color: "var(--forest-800)" }}
+                aria-hidden
+              >
+                <I size={18} aria-hidden />
+              </span>
+              <div className="text-sm font-semibold text-ink-900">{f.t}</div>
+              <p className="text-sm text-ink-500">{f.d}</p>
+            </div>
+          );
+        })}
       </section>
-    </main>
+
+      <footer className="app-container mt-12 pb-10 text-center text-xs text-ink-500">
+        Smart Queue Cafeteria · Operational dashboards for cashiers &amp; kitchen.
+      </footer>
+    </div>
   );
 }

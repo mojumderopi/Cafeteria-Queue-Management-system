@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getStaffFromCookie } from "@/lib/auth";
+import { canAccessCounter, getStaffFromCookie } from "@/lib/auth";
 import { emitOrderStatus } from "@/lib/bus";
 
 export async function POST(_req: Request, ctx: { params: { id: string } }) {
@@ -10,17 +10,24 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   }
   const order = await prisma.order.findUnique({ where: { id: ctx.params.id } });
   if (!order) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!canAccessCounter(staff, order.counterId)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
   if (order.status !== "PREPARING") {
     return NextResponse.json({ error: "bad_state", status: order.status }, { status: 409 });
   }
-  const updated = await prisma.order.update({
-    where: { id: order.id },
+  // Atomic conditional update.
+  const updated = await prisma.order.updateMany({
+    where: { id: order.id, status: "PREPARING" },
     data: { status: "READY", readyAt: new Date() },
   });
+  if (updated.count === 0) {
+    return NextResponse.json({ error: "bad_state" }, { status: 409 });
+  }
   emitOrderStatus({
-    orderId: updated.id,
-    token: updated.token,
-    counterId: updated.counterId,
+    orderId: order.id,
+    token: order.token,
+    counterId: order.counterId,
     status: "READY",
   });
   return NextResponse.json({ ok: true });

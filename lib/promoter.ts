@@ -18,6 +18,22 @@ export function startPromoter() {
         const bumpedIds = await promoteOldOrders(c.id);
         if (bumpedIds.length === 0) continue;
 
+        // Persist the new priorityScore in Postgres so the staff views
+        // (which sort by priorityScore desc from the DB) reflect the
+        // anti-starvation bump. Without this, the kitchen / cashier UI
+        // would show a stale ordering because the original priorityScore
+        // (Date.now() at creation) never changes after submit. The score
+        // is just `now + boost`, monotonic per counter.
+        const newScore = Date.now() + 50;
+        try {
+          await prisma.order.updateMany({
+            where: { id: { in: bumpedIds }, status: { in: ["PENDING_CASHIER", "APPROVED"] } },
+            data: { priorityScore: newScore },
+          });
+        } catch (err) {
+          console.error("[promoter] postgres update failed", err);
+        }
+
         // Only refetch + emit status for the orders whose scores actually changed,
         // then broadcast a single queuePromoted so kitchen/cashier can reorder.
         const orders = await prisma.order.findMany({

@@ -12,9 +12,16 @@ async function main() {
   if (!counter) throw new Error("seed first");
 
   // Pick an item, reset its stock to STOCK for a clean run.
-  const item = await prisma.menuItem.findFirst({ where: { counterId: counter.id, name: "Coke 330ml" } });
-  if (!item) throw new Error("seed missing Coke 330ml");
-  await prisma.menuItem.update({ where: { id: item.id }, data: { stockQty: STOCK } });
+  // The new demo seed marks intentionally-sold-out items as isAvailable=false;
+  // reset both fields so the order validator lets requests through.
+  const item = await prisma.menuItem.findFirst({
+    where: { counterId: counter.id, name: "Coke 330ml" },
+  });
+  if (!item) throw new Error("seed missing Coke 330ml — run npm run seed first");
+  await prisma.menuItem.update({
+    where: { id: item.id },
+    data: { stockQty: STOCK, isAvailable: true },
+  });
   await fetch(`${BASE}/api/counters/canteen-a`); // warm up menu
 
   // Sync Redis to match DB.
@@ -30,15 +37,22 @@ async function main() {
         items: [{ menuItemId: item.id, qty: 1 }],
       }),
     });
-    return { i, status: res.status };
+    let body: any = null;
+    try { body = await res.json(); } catch { /* no body */ }
+    return { i, status: res.status, body };
   });
   const results = await Promise.all(attempts);
-  const ok = results.filter((r) => r.status === 201).length;
+  // The order API returns 200 on success, not 201. Treat anything in [200, 299] as success.
+  const ok = results.filter((r) => r.status >= 200 && r.status < 300).length;
   const short = results.filter((r) => r.status === 409).length;
+  const other = results.filter((r) => r.status !== 409 && (r.status < 200 || r.status >= 300));
 
   console.log(`[concurrency] ${N} parallel POSTs, stock=${STOCK}`);
-  console.log(`[concurrency] 201 success: ${ok}`);
-  console.log(`[concurrency] 409 short:  ${short}`);
+  console.log(`[concurrency] 2xx success: ${ok}`);
+  console.log(`[concurrency] 409 short:   ${short}`);
+  if (other.length) {
+    console.log(`[concurrency] other (first 3): ${JSON.stringify(other.slice(0, 3))}`);
+  }
   if (ok !== STOCK) throw new Error(`FAIL: expected ${STOCK} successes, got ${ok}`);
   if (ok + short !== N) throw new Error(`FAIL: lost responses (${ok + short}/${N})`);
   console.log("[concurrency] PASS ✓");

@@ -12,7 +12,9 @@
     "seed": "tsx scripts/seed.ts",
     "qr": "tsx scripts/qr.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "concurrency": "tsx scripts/concurrency-test.ts"
+    "e2e": "tsx scripts/e2e.ts",
+    "concurrency": "tsx scripts/concurrency-test.ts",
+    "verify": "powershell -ExecutionPolicy Bypass -File scripts/run-verify.ps1"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

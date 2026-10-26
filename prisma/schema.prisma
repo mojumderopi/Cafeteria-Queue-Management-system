@@ -39,18 +39,57 @@ model User {
   role         Role     @default(STUDENT)
   createdAt    DateTime @default(now())
 
-  orders Order[]
+  orders        Order[]
+  staffCounters StaffCounter[]
+}
+
+model StaffCounter {
+  id        String   @id @default(cuid())
+  userId    String
+  counterId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  counter Counter @relation(fields: [counterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, counterId])
+  @@index([userId])
+  @@index([counterId])
+}
+
+model Provider {
+  id        String   @id @default(cuid())
+  // Globally unique slug for the initial implementation. A later phase
+  // may relax this to (slug, ownerId) or similar if multiple platforms
+  // ever need to coexist.
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  counters Counter[]
 }
 
 model Counter {
   id        String     @id @default(cuid())
+  // A counter is always owned by exactly one provider. The providerId
+  // column is added by the Phase 1 migration after a backfill, then
+  // made NOT NULL. The schema is tightened to non-nullable to match
+  // the post-migration state and avoid a `migrate dev` drift detection
+  // that would attempt to relax the column.
+  providerId String
   slug      String     @unique
   name      String
   qrSecret  String     @default(cuid())
   createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
+  provider  Provider     @relation(fields: [providerId], references: [id], onDelete: Restrict)
   menuItems MenuItem[]
   orders    Order[]
+  staff     StaffCounter[]
+
+  @@index([providerId])
 }
 
 model MenuItem {
@@ -62,13 +101,19 @@ model MenuItem {
   stockQty          Int     @default(0)
   lowStockThreshold Int     @default(3)
   isAvailable       Boolean @default(true)
+  // Soft-delete: NULL = active, non-null = archived. Archived items are
+  // hidden from the student-facing menu and from new orders, but historical
+  // OrderItem rows still resolve via the FK relationship.
+  archivedAt        DateTime?
   imageUrl          String?
   createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   counter   Counter     @relation(fields: [counterId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
 
   @@index([counterId])
+  @@index([archivedAt])
 }
 
 model Order {

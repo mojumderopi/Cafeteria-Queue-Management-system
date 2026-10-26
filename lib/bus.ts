@@ -1,7 +1,14 @@
 // Server-side socket emitter singleton used by API routes.
 // server.ts attaches the actual io instance via setIo() on boot.
 import type { Server as IOServer } from "socket.io";
-import { EV, ROOMS, type OrderNewEvent, type OrderStatusEvent, type StockLowEvent } from "./socket-events";
+import {
+  EV,
+  ROOMS,
+  type MenuAvailabilityEvent,
+  type OrderNewEvent,
+  type OrderStatusEvent,
+  type StockLowEvent,
+} from "./socket-events";
 
 let io: IOServer | null = null;
 
@@ -30,4 +37,17 @@ export function emitOrderStatus(e: OrderStatusEvent) {
 export function emitStockLow(e: StockLowEvent) {
   if (!io) return;
   io.to(ROOMS.counter(e.counterId)).to(ROOMS.cashier(e.counterId)).emit(EV.stockLow, e);
+}
+
+// Public menu availability update. Broadcast to:
+//   - the staff rooms (cashier, kitchen, counter)
+//   - the public menu room (so the student menu page can react live)
+// The payload is intentionally small and contains no private data.
+export function emitMenuAvailability(e: MenuAvailabilityEvent) {
+  if (!io) return;
+  io.to(ROOMS.cashier(e.counterId))
+    .to(ROOMS.kitchen(e.counterId))
+    .to(ROOMS.counter(e.counterId))
+    .to(ROOMS.menu(e.counterId))
+    .emit(EV.menuAvailability, e);
 }

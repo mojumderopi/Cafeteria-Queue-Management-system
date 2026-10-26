@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { MenuItem } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { reserveStock, enqueueOrder, nextToken, getStocks } from "@/lib/queue";
-import { getOrCreateGuestId } from "@/lib/auth";
+import { reserveStock, releaseStock, enqueueOrder, nextToken, getStocks } from "@/lib/queue";
+import { getOrCreateGuestId, signOrderToken } from "@/lib/auth";
 import { emitOrderNew, emitStockLow } from "@/lib/bus";
 
 const Line = z.object({ menuItemId: z.string().min(1), qty: z.number().int().positive().max(20) });
@@ -33,6 +33,13 @@ export async function POST(req: Request) {
     if (!m || !m.isAvailable) {
       return NextResponse.json(
         { error: "item_unavailable", menuItemId: line.menuItemId, name: m?.name ?? null },
+        { status: 409 },
+      );
+    }
+    // Archived items are never orderable, regardless of stock or flag.
+    if ((m as MenuItem & { archivedAt?: Date | null }).archivedAt) {
+      return NextResponse.json(
+        { error: "item_unavailable", menuItemId: line.menuItemId, name: m.name },
         { status: 409 },
       );
     }
@@ -81,28 +88,55 @@ export async function POST(req: Request) {
       ).id;
   }
 
-  const order = await prisma.order.create({
-    data: {
-      token,
-      counterId: counter.id,
-      userId,
-      guestPhone: guestPhone ?? null,
-      totalCents,
-      status: "PENDING_CASHIER",
-      paymentStatus: "UNPAID",
-      priorityScore: Date.now(),
-      items: {
-        create: items.map((line) => ({
-          menuItemId: line.menuItemId,
-          qty: line.qty,
-          unitPrice: menuById.get(line.menuItemId)!.price,
-        })),
+  let order: { id: string; token: string; priorityScore: number; totalCents: number; status: string; paymentStatus: string; items: { menuItemId: string; qty: number; unitPrice: number }[] };
+  try {
+    order = await prisma.order.create({
+      data: {
+        token,
+        counterId: counter.id,
+        userId,
+        guestPhone: guestPhone ?? null,
+        totalCents,
+        status: "PENDING_CASHIER",
+        paymentStatus: "UNPAID",
+        priorityScore: Date.now(),
+        items: {
+          create: items.map((line) => ({
+            menuItemId: line.menuItemId,
+            qty: line.qty,
+            unitPrice: menuById.get(line.menuItemId)!.price,
+          })),
+        },
       },
-    },
-    include: { items: true },
-  });
+      include: { items: true },
+    });
+  } catch (e) {
+    // Postgres write failed after Redis was already decremented. Roll
+    // back the stock reservation so we don't leak units, and roll back
+    // the ticket counter is not possible (it advances monotonically and
+    // is a presentation detail).
+    await releaseStock(
+      counter.id,
+      items.map((line) => ({ menuItemId: line.menuItemId, qty: line.qty })),
+    );
+    throw e;
+  }
 
-  await enqueueOrder(counter.id, order.id, order.priorityScore);
+  try {
+    await enqueueOrder(counter.id, order.id, order.priorityScore);
+  } catch (e) {
+    // Queue insert failed; the order is already in the DB. The customer
+    // will see the order on the tracking page (DB read) but staff will
+    // not get the realtime 'order:new' event. We could re-emit on retry,
+    // but the simplest path is to delete the order and release stock so
+    // the customer can re-try. This is a rare, last-ditch fallback.
+    await prisma.order.delete({ where: { id: order.id } }).catch(() => undefined);
+    await releaseStock(
+      counter.id,
+      items.map((line) => ({ menuItemId: line.menuItemId, qty: line.qty })),
+    );
+    throw e;
+  }
 
   emitOrderNew({
     orderId: order.id,
@@ -127,5 +161,9 @@ export async function POST(req: Request) {
       })),
     },
     guestId,
+    // Per-order HMAC token that authorizes GET /api/orders/[id] for
+    // the customer. Staff sessions (verified separately inside the
+    // detail endpoint) bypass this check.
+    orderToken: signOrderToken(order.id),
   });
 }

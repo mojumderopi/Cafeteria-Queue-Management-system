@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { OrderStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getStaffFromCookie } from "@/lib/auth";
+import { canAccessCounter, getStaffFromCookie } from "@/lib/auth";
 
 // Default status filter when the caller doesn't pass ?status=...
 const DEFAULT_STATUSES: OrderStatus[] = ["PENDING_CASHIER", "APPROVED", "PREPARING", "READY"];
@@ -15,8 +15,23 @@ export async function GET(req: Request) {
   const counterId = url.searchParams.get("counterId");
   const statusFilter = url.searchParams.get("status"); // csv e.g. "PENDING_CASHIER,APPROVED"
 
+  // Enforce per-counter access. An empty counterIds list means the staff user
+  // has not been assigned to any counter and gets no data. If the caller
+  // passed a counterId they don't own, refuse.
+  if (staff.counterIds.length === 0) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  if (counterId && !canAccessCounter(staff, counterId)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const where: Prisma.OrderWhereInput = {};
-  if (counterId) where.counterId = counterId;
+  // If the caller didn't pin a counter, restrict to the counters they own.
+  if (counterId) {
+    where.counterId = counterId;
+  } else if (staff.counterIds[0] !== "*") {
+    where.counterId = { in: staff.counterIds };
+  }
   if (statusFilter) {
     const statuses: OrderStatus[] = statusFilter.split(",") as OrderStatus[];
     where.status = { in: statuses };
